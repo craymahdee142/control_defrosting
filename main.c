@@ -73,10 +73,10 @@ int main() {
         control_system(&temp_sensor, &door_sensor, &humidity_sensor, &compressor, &condenser, &evaporator, &expansion_valve, &solenoid_valve, &hot_gas_bypass, &compressor_energy_consumed);
 
         // Calculate enthalpies and energy
-        float h_1 = calculate_enthalpy_evaporator(PRESSURE_LOW, ambient_temperature);
-        float h_2 = calculate_enthalpy_compressor_outlet(PRESSURE_HIGH, ambient_temperature);
-        float h_3 = calculate_enthalpy_condenser(PRESSURE_HIGH, surrounding_temperature);
-        float h_4 = calculate_enthalpy_expansion_valve(PRESSURE_LOW, surrounding_temperature);
+        float h_1 = calculate_enthalpy_evaporator(LOW_P, ambient_temperature);
+        float h_2 = calculate_enthalpy_compressor_outlet(HIGH_P, ambient_temperature);
+        float h_3 = calculate_enthalpy_condenser(HIGH_P, surrounding_temperature);
+        float h_4 = calculate_enthalpy_expansion_valve(LOW_P, surrounding_temperature);
         Q_evap = mass_flow_rate * (h_1 - h_4);
 
         printf("h_1: %.2f, h_2: %.2f, h_3: %.2f, h_4: %.2f\n", h_1, h_2, h_3, h_4);
@@ -119,7 +119,7 @@ int main() {
 
         fprintf(energy_file, "%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, compressor_energy_consumed, defrost_energy_consumed, control_unit_energy, total_energy_consumed);
         fprintf(cop_file, "%d,%.2f\n", i * CHECK_INTERVAL, cop);
-        fprintf(ph_file, "%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, PRESSURE_LOW, PRESSURE_HIGH, PRESSURE_HIGH, PRESSURE_LOW, h_1, h_2, h_3, h_4);
+        fprintf(ph_file, "%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, LOW_P, HIGH_P, HIGH_P, LOW_P, h_1, h_2, h_3, h_4);
 
         usleep(CHECK_INTERVAL * 1000000);
     }

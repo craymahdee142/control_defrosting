@@ -44,10 +44,11 @@ void simulate_heater_effect(TemperatureSensor* temp_sensor, float* defrost_energ
 void simulate_hot_gas_defrosting(float* temperature, float* defrost_energy_consumed) {
     float mass_flow_rate = 3.0; // kg/s
     float surrounding_temperature = read_surrounding_temperature();
+    float ambient_temperature = read_ambient_temperature();
     
     // Calculate enthalpies and energy
-    float h_1 = calculate_enthalpy_evaporator(PRESSURE_LOW, ambient_temperature);
-    float h_2 = calculate_enthalpy_compressor_outlet(PRESSURE_HIGH, ambient_temperature);
+    float h_1 = calculate_enthalpy_evaporator(LOW_P, ambient_temperature);
+    float h_2 = calculate_enthalpy_compressor_outlet(HIGH_P, ambient_temperature);
 
     float hot_gas_power = calculate_hot_gas_power(mass_flow_rate, h_2, h_1, HOT_GAS_EFFICIENCY); // kW
 

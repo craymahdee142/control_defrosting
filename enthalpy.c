@@ -17,11 +17,11 @@ double calculate_hot_gas_power(double mass_flow_rate, float h_1, float h_2, doub
 
 
 // Function to calculate enthalpy at evaporator outlet (h1)
-float calculate_enthalpy_evaporator(float tempearture, float ambient_temperature) {
+float calculate_enthalpy_evaporator(float pressure, float ambient_temperature) {
     float enthalpy;
-    if (pressure == PRESSURE_LOW) {
+    if (pressure == LOW_P) {
         enthalpy = h1_base + ambient_temperature * 0.005;
-    } else if (pressure == PRESSURE_HIGH) {
+    } else if (pressure == HIGH_P) {
         enthalpy = h1_base + ambient_temperature * 0.005; // Modify if different for high pressure
     } else {
         enthalpy = h1_base; // Default or interpolated value if needed
@@ -31,9 +31,9 @@ float calculate_enthalpy_evaporator(float tempearture, float ambient_temperature
 }
 
 // Function to calculate enthalpy at compressor outlet (h2)
-float calculate_enthalpy_compressor_outlet(float tempearture, float ambient_temperature) {
+float calculate_enthalpy_compressor_outlet(float pressure, float ambient_temperature) {
     float enthalpy;
-    if (pressure == PRESSURE_HIGH) {
+    if (pressure == HIGH_P) {
         enthalpy = h2_base + ambient_temperature * 0.005;
     } else {
         enthalpy = h2_base; // Default value for low pressure or other cases
@@ -43,9 +43,9 @@ float calculate_enthalpy_compressor_outlet(float tempearture, float ambient_temp
 }
 
 // Function to calculate enthalpy at condenser inlet (h3)
-float calculate_enthalpy_condenser(float tempearture, float surrounding_temperature) {
+float calculate_enthalpy_condenser(float pressure, float surrounding_temperature) {
     float enthalpy;
-    if (pressure == PRESSURE_HIGH) {
+    if (pressure == HIGH_P) {
         enthalpy = h3_base + surrounding_temperature * 0.003;
     } else {
         enthalpy = h3_base; // Default or interpolated value if needed
@@ -55,9 +55,9 @@ float calculate_enthalpy_condenser(float tempearture, float surrounding_temperat
 }
 
 // Function to calculate enthalpy at expansion valve inlet (h4)
-float calculate_enthalpy_expansion_valve(float tempearture, float surrounding_temperature) {
+float calculate_enthalpy_expansion_valve(float pressure, float surrounding_temperature) {
     float enthalpy;
-    if (pressure == PRESSURE_LOW) {
+    if (pressure == LOW_P) {
         enthalpy = h4_base + surrounding_temperature * 0.003;
     } else {
         enthalpy = h4_base; // Default or interpolated value if needed

@@ -27,9 +27,9 @@
 
 //#define AMBIENT_TEMPERATURE 25.0 
 
-#define PRESSURE_LOW 320   /*Low pressure in kpa */
-#define PRESSURE_HIGH 1200 /*High pressure in kpa */
-#define MAX_DATA_ROWS 1000
+#define LOW_P 106.7   /*Low pressure in Kpa */
+#define HIGH_P 1016.4 /*High pressure in kpa */
+/*define MAX_DATA_ROWS 1000*/
 
 #define CONTROL_UNIT_ENERGY_CONSUMPTION 0.05 // Example: 0.05 Wh per interval
 #define SENSOR_ENERGY_CONSUMPTION 0.001
