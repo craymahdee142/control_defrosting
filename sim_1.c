@@ -1,110 +1,75 @@
 #include "main.h"
+#include "variables.h"
 
-void toggle_door_state(DoorSensor* door_sensor) {
-    door_sensor->isOpen = rand() % 2; // Randomly set door state to open or closed
+void toggle_door_state(DoorSen* door_sen) {
+    door_sen->isOpen = rand() % 2; // Randomly set door state to open or closed
 }
 
-/*
-void simulate_heater_effect(TemperatureSensor* temp_sensor, float* defrost_energy_consumed) {
-    double initial_temp = temp_sensor->temperature;
 
-    Define the target temperature to reach during defrosting
-    float target_temp = 5.0; 
-    double energy_consumed = 0.0;
-    double heater_power = HEATER_POWER / heater_efficiency;
-
-    Continue defrosting until the target temperature is reached
-    while (temp_sensor->temperature < target_temp) {
-        
-        double defrost_step_duration = 1.0; 
-
-        Simulate the temperature increase
-        float temp_increase = 1.0; 
-        temp_sensor->temperature += temp_increase;
-
-        Calculate the energy consumed for this step
-        energy_consumed += heater_power * defrost_step_duration / 3600.0; // Convert to Wh
-
-         Break if temperature reaches or exceeds the target temperature
-        if (temp_sensor->temperature >= target_temp) {
-            break;
-        }
+void simulate_hot_gas_bypass_defrosting(float* pressure, float* temp, float* defrost_energy_consumed) {
+    if (!pressure || !temp || !defrost_energy_consumed) {
+        printf("Error: NULL pointer passed to simulate_hot_gas_defrosting\n");
+        return;
     }
 
-    pdate the total defrost energy consumed
-    *defrost_energy_consumed += energy_consumed;
-
-    Print the defrost details for debugging
-    printf("Defrost completed. Energy consumed: %.2f Wh, Final temperature: %.2f°C\n", energy_consumed, temp_sensor->temperature);
-}
-
-*/
-
-
-void simulate_hot_gas_defrosting(float* temperature, float* defrost_energy_consumed) {
     float mass_flow_rate = 3.0; // kg/s
-    float surrounding_temperature = read_surrounding_temperature();
-    float ambient_temperature = read_ambient_temperature();
+    
+    float ambient_temp = read_ambient_temp();
     
     // Calculate enthalpies and energy
-    float h_1 = calculate_enthalpy_evaporator(LOW_P, ambient_temperature);
-    float h_2 = calculate_enthalpy_compressor_outlet(HIGH_P, ambient_temperature);
+    float h_1 = calculate_enthalpy_evap(LOW_P, evap_temp, ambient_temp, superheating);
+    float h_2 = calculate_enthalpy_com(HIGH_P, con_temp, ambient_temp);
 
-    float hot_gas_power = calculate_hot_gas_power(mass_flow_rate, h_2, h_1, HOT_GAS_EFFICIENCY); // kW
 
-    float target_temp = 5.0; // Target temperature during defrosting
-    float initial_temp = *temperature;
+    float hot_gas_power = calculate_hot_gas_power(mass_flow_rate, h_1, h_2, HOT_GAS_EFFICIENCY); // kW
+
+    float initial_temp = *temp;
     float energy_consumed = 0.0;
 
-    while (*temperature < target_temp) {
-        float defrost_step_duration = 1.0; // Duration of defrost step in seconds
-        float temp_increase = 1.0; // Temperature increase per step in °C
-        *temperature += temp_increase;
-        energy_consumed += hot_gas_power * defrost_step_duration / 3600.0; // Convert to Wh
+    while (*temp < TARGET_TEMP) {
+        *temp += TEMP_INCREASE;
+        energy_consumed += hot_gas_power * DEFROST_STEP_DURATION / 3600.0; // Convert to Wh
 
-        if (*temperature >= target_temp) {
+        if (*temp >= TARGET_TEMP) {
             break;
         }
     }
 
     *defrost_energy_consumed += energy_consumed;
-    printf("Defrost completed using hot gas. Energy consumed: %.2f Wh, Final temperature: %.2f°C\n", energy_consumed, *temperature);
+    printf("Defrost completed using hot gas. Energy consumed: %.2f Wh, Final temperature: %.2f°C\n", energy_consumed, *temp);
 }
 
 
 
-
-void simulate_fan_effect(HumiditySensor* humidity_sensor) {
-    float humidity_decrease = random_float(1, 5);
-    humidity_sensor->humidity -= humidity_decrease;
-    if (humidity_sensor->humidity < 0) {
-        humidity_sensor->humidity = 0;
+void simulate_fan_effect(HudSen* hud_sen) {
+    float hud_decrease = random_float(1, 5);
+    hud_sen->hud -= hud_decrease;
+    if (hud_sen->hud < 0) {
+        hud_sen->hud = 0;
     }
 }
 
-
-
-int read_humidity(HumiditySensor* humidity_sensor) {
-    humidity_sensor->humidity = random_float(30, 50);
-    return humidity_sensor->humidity;
+int read_hud(HudSen* hud_sen) {
+    hud_sen->hud = random_float(30, 50);
+    return hud_sen->hud;
 }
 
-float read_temperature() {
-    return random_float(-5.0, 25.0);
+float read_temp(TempSen* temp_sen) {
+    return random_float(-18.0, -12.0);
 }
 
-void adjust_for_door_state(DoorSensor* door_sensor, float* temperature_adjustment, int* door_open_time) {
+void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_open_time) {
     int max_sec = 8; // Define the maximum seconds the door is allowed to be open without extra temperature adjustment
 
-    if (door_sensor->isOpen) {
+    if (door_sen->isOpen) {
         (*door_open_time)++; // Increment the door open time counter
 
         // Basic temperature adjustment when the door is open
-        *temperature_adjustment += 2.0;
+        *temp_adjustment += 2.0;
 
         // Additional temperature adjustment based on how long the door has been open
         if (*door_open_time > max_sec) {
-            *temperature_adjustment += (*door_open_time - max_sec) * 0.5; // Increase adjustment for every second beyond max_sec
+            *temp_adjustment += (*door_open_time - max_sec) * 0.5; // Increase adjustment for every second beyond max_sec
         }
 
         printf("Door state: OPEN for %d seconds\n", *door_open_time);
@@ -114,21 +79,24 @@ void adjust_for_door_state(DoorSensor* door_sensor, float* temperature_adjustmen
     }
 }
 
-
 /*
-void simulate_hot_gas_bypass_effect(HotGasBypass* hot_gas_bypass, TemperatureSensor* temp_sensor) {
+void simulate_hot_gas_bypass_effect(HotGasBypass* hot_gas_bypass, TempSen* temp_sen) {
     if (hot_gas_bypass->isActive) {
         float temp_increase = 1.0;
-        temp_sensor->temperature += temp_increase;
+        temp_sen->temp += temp_increase;
     }
 }
 */
 
-float read_ambient_temperature() {
+float read_ambient_temp() {
     return random_float(15.0, 35.0);
 }
-
-float read_surrounding_temperature() {
+/*
+float read_surrounding_temp() {
     return random_float(10.0, 30.0);
-}
+}*/
 
+
+float read_ambient_hud() {
+    return random_float(50.0, 60.0);
+}

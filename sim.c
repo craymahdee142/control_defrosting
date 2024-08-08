@@ -5,48 +5,51 @@ float random_float(float min, float max) {
 }
 
 
-void simulate_compressor_effect(float* temperature, float ambient_temperature, float* energy_consumed) {
-    float temp_decrease = 2.0;
-    if (ambient_temperature > 25.0) {
-        temp_decrease -= (ambient_temperature - 25.0) * 0.05;
-    } else if (ambient_temperature < 15.0) {
-        temp_decrease += (15.0 - ambient_temperature) * 0.05;
-    }
-    *temperature -= temp_decrease;
+// Simulate the compressor effect
+void simulate_com_effect(float* evap_temp, float ambient_temp, float* energy_consumed) {
+    // Adjust energy consumption based on the simulation interval
     *energy_consumed += COMPRESSOR_POWER * CHECK_INTERVAL / 3600.0;
 }
 
-void simulate_condenser_effect(float* temperature, float surrounding_temperature) {
-    float temp_decrease = 2.0;
-    if (surrounding_temperature > 25.0) {
-        temp_decrease -= (surrounding_temperature - 25.0) * 0.05;
-    } else if (surrounding_temperature < 15.0) {
-        temp_decrease += (15.0 - surrounding_temperature) * 0.05;
+
+// Simulate the condenser effect with subcooling
+void simulate_con_effect(float* cond_temp, float ambient_temp, float subcooling) {
+    // Apply subcooling to the cond temp
+    *cond_temp -= subcooling;
+
+    // Adjust based on ambient temp
+    float temp_adjustment = 2.0;
+    if (ambient_temp > 25.0) {
+        temp_adjustment -= (ambient_temp - 25.0) * 0.05;
+    } else if (ambient_temp < 15.0) {
+        temp_adjustment += (15.0 - ambient_temp) * 0.05;
     }
-    *temperature -= temp_decrease;
+    *cond_temp -= temp_adjustment;
 }
 
-void simulate_evaporator_effect(float* temperature, float surrounding_temperature) {
+// Simulate the evaporator effect based on surrounding temp and superheating
+void simulate_evap_effect(float* evap_temp, float ambient_temp, float superheating) {
+    // Apply superheating to the evap temp
+    *evap_temp += superheating;
+
+    // Adjust based on surrounding temp
     float temp_increase = 2.0;
-    if (surrounding_temperature > 25.0) {
-        temp_increase += (surrounding_temperature - 25.0) * 0.05;
-    } else if (surrounding_temperature < 15.0) {
-        temp_increase -= (15.0 - surrounding_temperature) * 0.05;
+    if (ambient_temp > 25.0) {
+        temp_increase += (ambient_temp - 25.0) * 0.05;
+    } else if (ambient_temp < 15.0) {
+        temp_increase -= (15.0 - ambient_temp) * 0.05;
     }
-    *temperature += temp_increase;
+    *evap_temp += temp_increase;
 }
 
-
-
-
-void simulate_expansion_valve_effect(ExpansionValve* expansion_valve) {
-    if (expansion_valve->isOpen) {
-        // Example logic to simulate expansion valve effect
+void simulate_exp_valve_effect(ExpValve* exp_valve) {
+    if (exp_valve->isOpen) {
+        // Example logic to simulate exp valve effect
     }
 }
 
-void simulate_solenoid_valve_effect(SolenoidValve* solenoid_valve) {
-    if (solenoid_valve->isOn) {
-        // Example logic to simulate solenoid valve effect
+void simulate_sol_valve_effect(SolValve* sol_valve) {
+    if (sol_valve->isOn) {
+        // Example logic to simulate sol valve effect
     }
 }

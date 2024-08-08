@@ -1,22 +1,46 @@
 #include "main.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+#include "variables.h"
 
+/* Declare global variables for deltas */
+float delta_T = 0.0;
+float delta_W = 0.0;
+
+/* Declare global variables for sensors and components */
+TempSen temp_sen;
+DoorSen door_sen;
+HudSen hud_sen;
+Com com;
+Con con;
+Evap evap;
+ExpValve exp_valve;
+SolValve sol_valve;
+HotGasBypass hot_gas_bypass;
+
+/* Declare constants and variables */
+float U = 0.5; // Example value
+float A = 100.0; // Example value
+float mass = 10.0; // Example value
+float specific_heat = 0.5; // Example value
+float usage_factor = 0.8; // Example value
+float CFM = 100.0; // Example value
+//float superheating = -17.0; // Example value
+//float subcooling = 32.5; // Example value
+//float evap_temp = -25.0;
+//float con_temp = 40.0;
+
+/* Function prototypes */
+void calculate_deltas(void);
 
 int main() {
     srand(time(NULL));
 
-    TemperatureSensor temp_sensor;
-    DoorSensor door_sensor;
-    HumiditySensor humidity_sensor;
-    Compressor compressor;
-    Condenser condenser;
-    Evaporator evaporator;
-    ExpansionValve expansion_valve;
-    SolenoidValve solenoid_valve;
-    HotGasBypass hot_gas_bypass;
-
     float last_defrost_time = 0;
     int defrost_needed = 0;
-    float compressor_energy_consumed = 0.0;
+    float com_energy_consumed = 0.0;
     float defrost_energy_consumed = 0.0;
     float control_unit_energy_consumed = 0.0;
     float total_energy_consumed = 0.0;
@@ -26,10 +50,15 @@ int main() {
     float Q_evap = 0.0;
     int defrost_count = 0;
 
+    float pressure = LOW_P;
+    float temp = -18.0; /*Initial temp in the freezer*/
+
     float mass_of_air = AIR_DENSITY * COLD_ROOM_VOLUME;
 
-    initialize_sensors(&temp_sensor, &door_sensor, &humidity_sensor);
-    initialize_components(&compressor, &condenser, &evaporator, &expansion_valve, &solenoid_valve, &hot_gas_bypass);
+    initialize_sensors(&temp_sen, &door_sen, &hud_sen);
+    
+
+    initialize_components(&com, &con, &evap, &exp_valve, &sol_valve, &hot_gas_bypass);
 
     FILE *energy_file = fopen("energy_consumption.txt", "w");
     FILE *cop_file = fopen("cop_over_time.txt", "w");
@@ -46,68 +75,81 @@ int main() {
 
     for (int i = 0; i < SIMULATION_DURATION / CHECK_INTERVAL; i++) {
         // Read sensors and update states
-        temp_sensor.temperature = read_temperature();
-        humidity_sensor.humidity = read_humidity(&humidity_sensor);
-        float ambient_temperature = read_ambient_temperature();
-        float surrounding_temperature = read_surrounding_temperature();
+        temp_sen.temp = read_temp(&temp_sen);
+        hud_sen.hud = read_hud(&hud_sen);
+        float ambient_temp = read_ambient_temp();
+        //float surrounding_temp = read_surrounding_temp();
 
         // Toggle door state randomly for testing
-        toggle_door_state(&door_sensor);
+        toggle_door_state(&door_sen);
 
-        // Adjust temperature based on door state
-        float temperature_adjustment = 0.0;
-        adjust_for_door_state(&door_sensor, &temperature_adjustment, &door_open_time);
-        temp_sensor.temperature += temperature_adjustment;
+        // Adjust temp based on door state
+        float temp_adjustment = 0.0;
+        adjust_for_door_state(&door_sen, &temp_adjustment, &door_open_time);
+        temp_sen.temp += temp_adjustment;
+
+        // Calculate deltas
+        calculate_deltas();
+
+        // Calculate heat gains
+        float heat_gain_walls_roof = calculate_heat_gain_walls_roof(U, A, delta_T);
+        float heat_gain_product = calculate_heat_gain_product(mass, specific_heat, delta_T, usage_factor);
+        float heat_gain_infiltration = calculate_heat_gain_infiltration(CFM, delta_T);
+        float latent_heat_gain = calculate_latent_heat_gain(CFM, delta_W);
+
+        /* Q_total heat*/
+	float total_heat_gain = heat_gain_walls_roof + heat_gain_product + heat_gain_infiltration + latent_heat_gain;
+        printf("Total Heat Gain: %.2f W\n", total_heat_gain);
 
         // Simulate effects of various components
-        if (compressor.isOn) {
-            simulate_compressor_effect(&temp_sensor.temperature, ambient_temperature, &compressor_energy_consumed);
+        if (com.isOn) {
+           simulate_com_effect(&evap_temp, ambient_temp, &com_energy_consumed);
         }
-        simulate_condenser_effect(&temp_sensor.temperature, surrounding_temperature);
-        simulate_evaporator_effect(&temp_sensor.temperature, surrounding_temperature);
-        simulate_solenoid_valve_effect(&solenoid_valve);
-        simulate_expansion_valve_effect(&expansion_valve);
-        simulate_hot_gas_bypass_effect(&hot_gas_bypass, &temp_sensor);
+        simulate_con_effect(&temp_sen.temp, ambient_temp, subcooling);
+        simulate_evap_effect(&temp_sen.temp, ambient_temp, superheating);
+        simulate_sol_valve_effect(&sol_valve);
+        simulate_exp_valve_effect(&exp_valve);
+        simulate_hot_gas_bypass_defrosting(&pressure, &temp, &defrost_energy_consumed);
 
         // Control system
-        control_system(&temp_sensor, &door_sensor, &humidity_sensor, &compressor, &condenser, &evaporator, &expansion_valve, &solenoid_valve, &hot_gas_bypass, &compressor_energy_consumed);
+        control_system(&temp_sen, &door_sen, &hud_sen, &com, &con, &evap, &exp_valve, &sol_valve, &hot_gas_bypass, &com_energy_consumed);
 
-        // Calculate enthalpies and energy
-        float h_1 = calculate_enthalpy_evaporator(LOW_P, ambient_temperature);
-        float h_2 = calculate_enthalpy_compressor_outlet(HIGH_P, ambient_temperature);
-        float h_3 = calculate_enthalpy_condenser(HIGH_P, surrounding_temperature);
-        float h_4 = calculate_enthalpy_expansion_valve(LOW_P, surrounding_temperature);
-        Q_evap = mass_flow_rate * (h_1 - h_4);
+        /* Calculate enthalpies and energy*/
+       	float h_1 = calculate_enthalpy_evap(LOW_P, evap_temp, ambient_temp, superheating);
+	float h_2 = calculate_enthalpy_com(HIGH_P, con_temp, ambient_temp);
+	float h_3 = calculate_enthalpy_con(HIGH_P, con_temp, subcooling, ambient_temp);
+	float h_4 = calculate_enthalpy_exp_valve(LOW_P, evap_temp);
+       /* Q_evap = mass_flow_rate * (h_1 - h_4);*/
 
         printf("h_1: %.2f, h_2: %.2f, h_3: %.2f, h_4: %.2f\n", h_1, h_2, h_3, h_4);
 
-        float temp_diff = read_ambient_temperature() - temp_sensor.temperature;
+        float temp_diff = ambient_temp - temp_sen.temp;
         total_heat_removed += AIR_SPECIFIC_HEAT * mass_of_air * temp_diff / 3600.0;
 
         float control_unit_energy = CONTROL_UNIT_ENERGY_CONSUMPTION;
-        total_energy_consumed = compressor_energy_consumed + defrost_energy_consumed + control_unit_energy;
+        total_energy_consumed = com_energy_consumed + defrost_energy_consumed + control_unit_energy;
 
         float sensors_energy_consumed = SENSOR_ENERGY_CONSUMPTION * NUM_SENSORS;
 
-        if ((temp_sensor.temperature <= 0 || humidity_sensor.humidity > 50) && !defrost_needed && (i * CHECK_INTERVAL - last_defrost_time >= MINIMUM_DEFROST_INTERVAL)) {
+        if ((temp_sen.temp <= 0 || hud_sen.hud > 50) && !defrost_needed && (i * CHECK_INTERVAL - last_defrost_time >= MINIMUM_DEFROST_INTERVAL)) {
             defrost_needed = 1;
             last_defrost_time = i * CHECK_INTERVAL;
         }
 
         if (defrost_needed) {
-            simulate_heater_effect(&temp_sensor, &defrost_energy_consumed);
+            simulate_hot_gas_bypass_defrosting(&pressure, &temp, &defrost_energy_consumed);
             defrost_needed = 0;
             defrost_count++;
         }
 
-        float cop = total_energy_consumed == 0.0 ? 0.0 : calculate_cop(h_1, h_2, h_3, h_4, mass_flow_rate);
+        float cop = total_energy_consumed == 0.0 ? 0.0 : calculate_cop(h_1, h_2, mass_flow_rate, total_heat_gain);
 
         // Print current state
         printf("Time: %d seconds\n", i * CHECK_INTERVAL);
-        printf("Temperature: %.2f°C\n", temp_sensor.temperature);
-        printf("Humidity: %.2f%%\n", humidity_sensor.humidity);
-        printf("Door state: %s\n", door_sensor.isOpen ? "Open" : "Closed");
-        printf("Compressor Energy Consumed: %.2f kWh\n", compressor_energy_consumed / 1000.0);
+        printf("Temperature: %.2f°C\n", temp_sen.temp);
+        printf("Humidity: %.2f%%\n", hud_sen.hud);
+        printf("Door state: %s\n", door_sen.isOpen ? "Open" : "Closed");
+        printf("Compressor Energy Consumed: %.2f kWh\n", com_energy_consumed / 1000.0);
         printf("Defrost Energy Consumed: %.2f kWh\n", defrost_energy_consumed / 1000.0);
         printf("Control Unit Energy Consumed: %.2f kWh\n", control_unit_energy / 1000.0);
         printf("Sensors Energy Consumed: %.2f kWh\n", sensors_energy_consumed / 1000.0);
@@ -117,9 +159,9 @@ int main() {
         printf("COP: %.2f\n", cop);
         printf("\n");
 
-        fprintf(energy_file, "%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, compressor_energy_consumed, defrost_energy_consumed, control_unit_energy, total_energy_consumed);
+        fprintf(energy_file, "%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, com_energy_consumed, defrost_energy_consumed, control_unit_energy, total_energy_consumed);
         fprintf(cop_file, "%d,%.2f\n", i * CHECK_INTERVAL, cop);
-        fprintf(ph_file, "%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, LOW_P, HIGH_P, HIGH_P, LOW_P, h_1, h_2, h_3, h_4);
+        fprintf(ph_file, "%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", i * CHECK_INTERVAL, LOW_P, HIGH_P, HIGH_P, LOW_P, h_1, h_2, h_3, h_4);
 
         usleep(CHECK_INTERVAL * 1000000);
     }
@@ -129,9 +171,9 @@ int main() {
     fclose(ph_file);
 
     printf("Simulation completed.\n");
-
     printf("Final Total Energy Consumed: %.2f kWh\n", total_energy_consumed / 1000.0);
-    printf("Number of Defrost Cycles: %d\n", defrost_count); // Print the defrost cycle count
+    printf("Number of Defrost Cycles: %d\n", defrost_count);
 
     return 0;
 }
+
