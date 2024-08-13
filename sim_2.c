@@ -8,6 +8,19 @@ void initialize_sensors(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen) {
     hud_sen->hud = 55.0f;     // Start with 55% humidity
 }
 
+// Update sensor values at runtime
+void update_sensors(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen) {
+    // Simulate reading new temperature from sensor
+    temp_sen->temp = read_temp(temp_sen);
+
+    // Simulate reading new door state from sensor
+    door_sen->isOpen = read_door_sen(door_sen);  // Assuming you have a function to read door sensor
+
+    // Simulate reading new humidity from sensor
+    hud_sen->hud = read_hud(hud_sen);
+}
+
+
 // Get the current time in seconds
 float get_current_time() {
     return (float)time(NULL);
@@ -87,6 +100,10 @@ void control_system(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen, Com* 
 
     // Initialize sensors
     initialize_sensors(temp_sen, door_sen, hud_sen);
+
+    // Update sensor readings at the start of each control cycle
+    update_sensors(temp_sen, door_sen, hud_sen);
+
 
     // Read current sensor values with realistic range checks
     float current_temp = read_temp(temp_sen);
