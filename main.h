@@ -25,7 +25,7 @@
 #define TIME_RATIO 540 /* 540 secs for 9 mins in real time */
 
 /* Constants */
-#define COLD_ROOM_VOLUME 0.78 // in cubic meters (1.275m x 0.825m x 0.740m)
+#define COLD_ROOM_VOLUME 0.2954 // in cubic meters (0.632m x 0.85m x 0.55m for 142L)
 #define AIR_DENSITY 1.2 // in kg/m^3
 #define AIR_SPECIFIC_HEAT 1005.0 // in J/kg·°C
 #define COMPRESSOR_POWER 0.165 /* Compressor power in KW */
@@ -43,6 +43,8 @@
 
 #define LOW_P 58.99   /*Low pressure in Kpa */
 #define HIGH_P 535.9 /*High pressure in kpa */
+
+#define TOLERANCE 0.01 /* For precise cal*/
 
 #define CONTROL_UNIT_ENERGY_CONSUMPTION 0.05 // Example: 0.05 Wh per interval
 #define SENSOR_ENERGY_CONSUMPTION 0.001
@@ -133,7 +135,7 @@ typedef struct {
 float random_float(float min, float max);
 float read_ambient_temp();
 float read_surrounding_temp();
-int read_hud(HudSen* hud_sen);
+float read_hud(HudSen* hud_sen);
 float random_float(float min, float max);
 float read_ambient_hud();
 float read_temp(TempSen* temp_sen); /* Reads the temp from the temperature sensor */
@@ -146,28 +148,34 @@ void decrease_humidity(SolValve* sol_valve, Evap* evap, Com* com);
 float get_frost_level(float current_temp, float current_hud, float target_temp_low, float target_temp_high, float target_humidity_low, float target_humidity_high);
 
 
+void control_humidity(HudSen* hud_sen, SolValve* sol_valve, Evap* evap, Com* com);
+void control_temperature(TempSen* temp_sen, SolValve* sol_valve, Com* com, Con* con);
+
 double calculate_hot_gas_power(double mass_flow_rate, float h_1, float h_2, double efficiency);
 void toggle_door_state(DoorSen* door_sen);
 
 /* Prototypes */
 bool read_door_sen(DoorSen* door_sen); /* Reads the state of the door sen (open/closed) */
-float calculate_cop(float h_1, float h_2, float total_heat_gain, float mass_flow_rate);
+//float calculate_cop(float h_1, float h_2, float total_heat_gain, float mass_flow_rate);
 
-float calculate_enthalpy_evap(float pressure, float evap_temp, float ambient_temp, float superheating);
-float calculate_enthalpy_com(float pressure, float con_temp, float ambient_temp);
-float calculate_enthalpy_con(float pressure, float con_temp, float suncooling, float ambient_temp);
-float calculate_enthalpy_exp_valve(float pressure, float evap_temp);
+float calculate_cop(float total_heat_gain, float W_com);
+//float calculate_mass_flow_rate(float total_heat_gain, float h_1, float h_4);
+
+float calculate_enthalpy_evap(float low_pressure, float evap_temp, float ambient_temp, float superheating);
+float calculate_enthalpy_com(float high_pressure, float con_temp, float ambient_temp);
+float calculate_enthalpy_con(float low_pressure, float con_temp, float suncooling, float ambient_temp);
+float calculate_enthalpy_exp_valve(float low_pressure, float evap_temp);
 
 float calculate_enthalpy(float ambient_temp, float pressure);
 
 /* Simulate effects */
-void simulate_com_effect(float* evap_temp, float ambient_temp, float* energy_consumed);
-void simulate_con_effect(float* con_temp, float ambient_temp, float subcooling);
-void simulate_evap_effect(float* evap_temp, float ambient_temp, float superheating);
+void simulate_com_effect(float temp_sensor_reading, float* evap_temp, float ambient_temp, float* energy_consumed);
+void simulate_con_effect(float temp_sensor_reading, float* con_temp, float ambient_temp, float subcooling);
+void simulate_evap_effect(float temp_sensor_reading, float* evap_temp, float ambient_temp, float superheating);
 void simulate_exp_valve_effect(ExpValve* exp_valve);
 void simulate_sol_valve_effect(SolValve* sol_valve);
 //void simulate_hot_gas_bypass_effect(HotGasBypass* hot_gas_bypass, TempSen* temp_sen);
-void simulate_hot_gas_bypass_defrosting(float* pressure, float* temp, float* defrost_energy_consumed);
+void simulate_hot_gas_bypass_defrosting(float pressure, float* con_temp, float* defrost_energy_consumed);
 //void simulate_heater_effect(TempSen* temp_sen, float* defrost_energy_consumed);
 void simulate_fan_effect(HudSen* hud_sen);
 void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_open_time);
@@ -181,11 +189,15 @@ void simulate_system(float external_temp);
 
 /* Calculate cooling load*/
 float calculate_heat_gain_walls_roof(float U, float A, float delta_T);
-float calculate_heat_gain_product(float mass, float specific_heat, float delta_T, float usage_factor);
+float calculate_heat_gain_product(float mass, float specific_heat_air, float delta_T, float usage_factor);
 float calculate_heat_gain_infiltration(float CFM, float delta_T);
 float calculate_latent_heat_gain(float CFM, float delta_W);
+float calculate_heat_gain_air(float mass_of_air, float specific_heat_air, float delta_T);
 
 void calculate_deltes();
+
+float get_current_time();
+
 
 #endif
 

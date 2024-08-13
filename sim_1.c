@@ -6,37 +6,39 @@ void toggle_door_state(DoorSen* door_sen) {
 }
 
 
-void simulate_hot_gas_bypass_defrosting(float* pressure, float* temp, float* defrost_energy_consumed) {
-    if (!pressure || !temp || !defrost_energy_consumed) {
-        printf("Error: NULL pointer passed to simulate_hot_gas_defrosting\n");
+void simulate_hot_gas_bypass_defrosting(float pressure, float* con_temp, float* defrost_energy_consumed) {
+
+    /*	if (!con_temp || !defrost_energy_consumed) {
+        printf("Error: NULL pointer passed to simulate_hot_gas_bypass_defrosting\n");
         return;
-    }
+    }*/
 
-    float mass_flow_rate = 3.0; // kg/s
-    
-    float ambient_temp = read_ambient_temp();
-    
-    // Calculate enthalpies and energy
+    float mass_flow_rate = 0.79; // kg/s
+    float ambient_temp = read_ambient_temp(); // Assuming this function provides ambient temperature
+    float evap_temp;
+
+    // Calculate enthalpy values at evaporator and condenser
     float h_1 = calculate_enthalpy_evap(LOW_P, evap_temp, ambient_temp, superheating);
-    float h_2 = calculate_enthalpy_com(HIGH_P, con_temp, ambient_temp);
+    float h_2 = calculate_enthalpy_com(HIGH_P, *con_temp, ambient_temp); 
 
-
+    // Calculate hot gas power
     float hot_gas_power = calculate_hot_gas_power(mass_flow_rate, h_1, h_2, HOT_GAS_EFFICIENCY); // kW
 
-    float initial_temp = *temp;
+    float initial_temp = *con_temp;
     float energy_consumed = 0.0;
 
-    while (*temp < TARGET_TEMP) {
-        *temp += TEMP_INCREASE;
+    // Simulate temperature increase due to hot gas
+    while (*con_temp < TARGET_TEMP) {
+        *con_temp += TEMP_INCREASE;
         energy_consumed += hot_gas_power * DEFROST_STEP_DURATION / 3600.0; // Convert to Wh
 
-        if (*temp >= TARGET_TEMP) {
+        if (*con_temp >= TARGET_TEMP) {
             break;
         }
     }
 
     *defrost_energy_consumed += energy_consumed;
-    printf("Defrost completed using hot gas. Energy consumed: %.2f Wh, Final temperature: %.2f°C\n", energy_consumed, *temp);
+    printf("Defrost completed using hot gas. Energy consumed: %.2f Wh, Final temperature: %.2f°C\n", energy_consumed, *con_temp);
 }
 
 
@@ -49,17 +51,28 @@ void simulate_fan_effect(HudSen* hud_sen) {
     }
 }
 
-int read_hud(HudSen* hud_sen) {
-    hud_sen->hud = random_float(30, 50);
+/*
+float read_hud(HudSen* hud_sen) {
+    if (hud_sen == NULL) {
+	printf("Error: hud_sen is NULL\n");
+        return -1.0f;
+    }	
     return hud_sen->hud;
 }
 
+
 float read_temp(TempSen* temp_sen) {
-    return random_float(-18.0, -12.0);
+    if (temp_sen == NULL) {
+        // Handle null pointer error
+        printf("Error: temp_sen is NULL\n");
+        return -1.0f; // Return an error code
+    }
+    return temp_sen->temp;
 }
+*/
 
 void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_open_time) {
-    int max_sec = 8; // Define the maximum seconds the door is allowed to be open without extra temperature adjustment
+    int max_sec = 5; // Define the maximum seconds the door is allowed to be open without extra temperature adjustment
 
     if (door_sen->isOpen) {
         (*door_open_time)++; // Increment the door open time counter
@@ -79,24 +92,18 @@ void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_
     }
 }
 
-/*
-void simulate_hot_gas_bypass_effect(HotGasBypass* hot_gas_bypass, TempSen* temp_sen) {
-    if (hot_gas_bypass->isActive) {
-        float temp_increase = 1.0;
-        temp_sen->temp += temp_increase;
-    }
-}
-*/
+
 
 float read_ambient_temp() {
-    return random_float(15.0, 35.0);
+    float base_ambient_temp = 25.0;
+    float variation = random_float(-10.0, 10.0);
+    return base_ambient_temp + variation;
 }
-/*
-float read_surrounding_temp() {
-    return random_float(10.0, 30.0);
-}*/
+
 
 
 float read_ambient_hud() {
-    return random_float(50.0, 60.0);
+    float base_ambient_hud = 40.0;
+    float variation = random_float(-20.0, 20.0);
+    return base_ambient_hud + variation;
 }

@@ -6,21 +6,21 @@ float random_float(float min, float max) {
 
 
 // Simulate the compressor effect
-void simulate_com_effect(float* evap_temp, float ambient_temp, float* energy_consumed) {
+void simulate_com_effect(float temp_sensor_reading, float* evap_temp, float ambient_temp, float* energy_consumed) {
     // Adjust energy consumption based on the simulation interval
     *energy_consumed += COMPRESSOR_POWER * CHECK_INTERVAL / 3600.0;
 }
 
 
 // Simulate the condenser effect with subcooling
-void simulate_con_effect(float* cond_temp, float ambient_temp, float subcooling) {
+void simulate_con_effect(float temp_sensor_reading, float* cond_temp, float ambient_temp, float subcooling) {
     // Apply subcooling to the cond temp
     *cond_temp -= subcooling;
 
     // Adjust based on ambient temp
     float temp_adjustment = 2.0;
-    if (ambient_temp > 25.0) {
-        temp_adjustment -= (ambient_temp - 25.0) * 0.05;
+    if (ambient_temp > 35.0) {
+        temp_adjustment -= (ambient_temp - 35.0) * 0.05;
     } else if (ambient_temp < 15.0) {
         temp_adjustment += (15.0 - ambient_temp) * 0.05;
     }
@@ -28,14 +28,14 @@ void simulate_con_effect(float* cond_temp, float ambient_temp, float subcooling)
 }
 
 // Simulate the evaporator effect based on surrounding temp and superheating
-void simulate_evap_effect(float* evap_temp, float ambient_temp, float superheating) {
+void simulate_evap_effect(float temp_sensor_reading, float* evap_temp, float ambient_temp, float superheating) {
     // Apply superheating to the evap temp
     *evap_temp += superheating;
 
     // Adjust based on surrounding temp
     float temp_increase = 2.0;
-    if (ambient_temp > 25.0) {
-        temp_increase += (ambient_temp - 25.0) * 0.05;
+    if (ambient_temp > 35.0) {
+        temp_increase += (ambient_temp - 35.0) * 0.05;
     } else if (ambient_temp < 15.0) {
         temp_increase -= (15.0 - ambient_temp) * 0.05;
     }
