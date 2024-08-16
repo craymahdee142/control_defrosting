@@ -1,7 +1,6 @@
 #include "main.h"
 #include "variables.h"
 
-
 // Constants for base enthalpy values
 float h1_base = 533.989; // Enthalpy at evap outlet (kJ/kg) for pressure p1
 float h2_base = 619.025; // Enthalpy at com outlet (kJ/kg) for pressure p2
@@ -25,6 +24,8 @@ float calculate_enthalpy_evap(float low_pressure, float evap_temp, float ambient
     float enthalpy = 0.0;
     if (is_approximately_equal(low_pressure, LOW_P, TOLERANCE)) {
         enthalpy = h1_base + (evap_temp - ambient_temp) * 0.005 + superheating;
+    } else {
+        printf("Error: Low pressure out of range\n");
     }
     printf("Evaporator outlet enthalpy: %.2f kJ/kg (Pressure: %.2f kPa, Ambient Temp: %.2f°C)\n", enthalpy, low_pressure, ambient_temp);
     return enthalpy;
@@ -35,6 +36,8 @@ float calculate_enthalpy_com(float high_pressure, float con_temp, float ambient_
     float enthalpy = 0.0;
     if (is_approximately_equal(high_pressure, HIGH_P, TOLERANCE)) {
         enthalpy = h2_base + (con_temp - ambient_temp) * 0.005;
+    } else {
+        printf("Error: High pressure out of range\n");
     }
     printf("Compressor outlet enthalpy: %.2f kJ/kg (Pressure: %.2f kPa, Ambient Temp: %.2f°C)\n", enthalpy, high_pressure, ambient_temp);
     return enthalpy;
@@ -45,6 +48,8 @@ float calculate_enthalpy_con(float high_pressure, float con_temp, float subcooli
     float enthalpy = 0.0;
     if (is_approximately_equal(high_pressure, HIGH_P, TOLERANCE)) {
         enthalpy = h3_base + (con_temp - ambient_temp) * 0.003 - subcooling;
+    } else {
+        printf("Error: High pressure out of range\n");
     }
     printf("Condenser inlet enthalpy: %.2f kJ/kg (Pressure: %.2f kPa, Ambient Temp: %.2f°C)\n", enthalpy, high_pressure, ambient_temp);
     return enthalpy;
@@ -55,16 +60,20 @@ float calculate_enthalpy_exp_valve(float low_pressure, float evap_temp) {
     float enthalpy = 0.0;
     if (is_approximately_equal(low_pressure, LOW_P, TOLERANCE)) {
         enthalpy = h4_base + evap_temp * 0.003;
+    } else {
+        printf("Error: Low pressure out of range\n");
     }
+
     printf("Expansion valve inlet enthalpy: %.2f kJ/kg (Pressure: %.2f kPa, Evaporator Temp: %.2f°C)\n", enthalpy, low_pressure, evap_temp);
     return enthalpy;
 }
 
 
-float calculate_cop(float total_heat_gain, float W_com) {
+float calculate_cop(float Q_evap, float W_com) {
     if (W_com == 0) {
         return 0.0;
     }
-    float cop = total_heat_gain / W_com;
+    float cop = Q_evap / W_com;
     return cop;
 }
+

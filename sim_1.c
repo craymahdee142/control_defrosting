@@ -8,7 +8,7 @@ void toggle_door_state(DoorSen* door_sen) {
 
 void simulate_hot_gas_bypass_defrosting(float pressure, float* con_temp, float* defrost_energy_consumed) {
 
-    /*	if (!con_temp || !defrost_energy_consumed) {
+    /*  if (!con_temp || !defrost_energy_consumed) {
         printf("Error: NULL pointer passed to simulate_hot_gas_bypass_defrosting\n");
         return;
     }*/
@@ -42,53 +42,42 @@ void simulate_hot_gas_bypass_defrosting(float pressure, float* con_temp, float* 
 }
 
 
+void adjust_for_door_state(TempSen* temp_sen, HudSen* hud_sen, DoorSen* door_sen) {
+    static float door_open_start_time = 0.0f; // Static to persist across function calls
+    static float accumulated_open_time = 0.0f; // Static to persist across function calls
+    static int door_open_count = 0;
 
-void simulate_fan_effect(HudSen* hud_sen) {
-    float hud_decrease = random_float(1, 5);
-    hud_sen->hud -= hud_decrease;
-    if (hud_sen->hud < 0) {
-        hud_sen->hud = 0;
-    }
-}
-
-/*
-float read_hud(HudSen* hud_sen) {
-    if (hud_sen == NULL) {
-	printf("Error: hud_sen is NULL\n");
-        return -1.0f;
-    }	
-    return hud_sen->hud;
-}
-
-
-float read_temp(TempSen* temp_sen) {
-    if (temp_sen == NULL) {
-        // Handle null pointer error
-        printf("Error: temp_sen is NULL\n");
-        return -1.0f; // Return an error code
-    }
-    return temp_sen->temp;
-}
-*/
-
-void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_open_time) {
-    int max_sec = 5; // Define the maximum seconds the door is allowed to be open without extra temperature adjustment
+    float current_time = get_current_time(); // Get the current time in seconds
 
     if (door_sen->isOpen) {
-        (*door_open_time)++; // Increment the door open time counter
-
-        // Basic temperature adjustment when the door is open
-        *temp_adjustment += 2.0;
-
-        // Additional temperature adjustment based on how long the door has been open
-        if (*door_open_time > max_sec) {
-            *temp_adjustment += (*door_open_time - max_sec) * 0.5; // Increase adjustment for every second beyond max_sec
+        // Track the start time when the door is opened
+        if (door_open_start_time == 0.0f) {
+            door_open_start_time = current_time;
+            door_open_count++;
+            printf("Door opened %d times.\n", door_open_count);
         }
 
-        printf("Door state: OPEN for %d seconds\n", *door_open_time);
+        // Calculate the duration the door has been open
+        accumulated_open_time = current_time - door_open_start_time;
+
+        // Additional adjustments based on the door open duration
+        if (accumulated_open_time > 3.0f) { // More than 3 seconds
+            float extra_temp_adjustment = (accumulated_open_time - 3.0f) * 0.5; // Example linear increment
+            float extra_hud_adjustment = (accumulated_open_time - 3.0f) * 0.2; // Example linear increment
+
+            temp_sen->temp += extra_temp_adjustment;
+            hud_sen->hud += extra_hud_adjustment;
+        }
+
+        printf("Door state: OPEN for %.2f seconds\n", accumulated_open_time);
     } else {
-        *door_open_time = 0; // Reset the door open time counter if the door is closed
-        printf("Door state: CLOSED\n");
+        // Reset the door open time and accumulated time if the door is closed
+        if (door_open_start_time != 0.0f) {
+            printf("Door state: CLOSED after %.2f seconds\n", accumulated_open_time);
+        }
+
+        door_open_start_time = 0.0f;
+        accumulated_open_time = 0.0f;
     }
 }
 
@@ -97,13 +86,35 @@ void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_
 float read_ambient_temp() {
     float base_ambient_temp = 25.0;
     float variation = random_float(-10.0, 10.0);
-    return base_ambient_temp + variation;
+    float ambient_temp = base_ambient_temp + variation;
+
+    printf("Ambient Temp: %.2f°C\n", ambient_temp);
+    return ambient_temp;
+}
+
+float read_ambient_hud() {
+    float base_ambient_hud = 55.0;
+    float variation = random_float(-30.0, 30.0);
+    float ambient_hud = base_ambient_hud + variation;
+
+    // Ensure humidity is within 0% to 100%
+    if (ambient_hud < 0.0) {
+        ambient_hud = 0.0;
+    } else if (ambient_hud > 100.0) {
+        ambient_hud = 100.0;
+    }
+
+
+    printf("Ambient Humidity: %.2f%%\n", ambient_hud);
+    return ambient_hud;
 }
 
 
 
-float read_ambient_hud() {
-    float base_ambient_hud = 40.0;
-    float variation = random_float(-20.0, 20.0);
-    return base_ambient_hud + variation;
+void simulate_fan_effect(HudSen* hud_sen) {
+    float hud_decrease = random_float(1, 5);
+    hud_sen->hud -= hud_decrease;
+    if (hud_sen->hud < 0) {
+        hud_sen->hud = 0;
+    }
 }
