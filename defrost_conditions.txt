@@ -1,0 +1,1 @@
+Time(s),DefrostEnergyConsumed(KWh),TemperatureIncrease(C),HumidityDecrease(%)

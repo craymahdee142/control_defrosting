@@ -8,56 +8,60 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-#include <stdbool.h> // For boolean type
+#include <stdbool.h> 
 
-#define HOT_GAS_EFFICIENCY 0.85 /* efficiency of the hot gas 80% */
-#define TARGET_TEMP 5.0 // Target temperature during defrosting in °C
-#define TEMP_INCREASE 1.0 // Temperature increase per step in °C
-#define DEFROST_STEP_DURATION 1.0 // Duration of defrost step in seconds
+#define HOT_GAS_EFFICIENCY 0.85 /* efficiency of the hot gas 85% */
+#define TARGET_TEMP 5.0 /*Target temperature during defrosting in °C*/
+#define TEMP_INCREASE 1.0 /* Temperature increase per step in °C*/
+#define DEFROST_STEP_DURATION 1.0 /* Duration of defrost step in seconds*/
 
+#define DEFROST_EFFICIENCY 0.20 
 
+#define SPECIFIC_HEAT_OF_ICE 2093 /*in J/kg°C */
+#define LATENT_HEAT_OF_ICE 333.55  /*kJ/kg for ice*/
+#define ICE_MASS 0.01   
+
+#define FROST_THRESHOLD 0.15 
+
+#define TARGET_TEMP_LOW -20.0
+#define TARGET_TEMP_HIGH -18.0
+#define TARGET_HUMIDITY_LOW 50.0
+#define TARGET_HUMIDITY_HIGH 60.0
+
+/*
 #define COOLING_RATE 0.5f
 #define DOOR_HEAT_GAIN 2.0f
 #define DEFROST_HEAT_GAIN 5.0f
 #define DOOR_HUMIDITY_GAIN 3.0f
 #define HEAT_TRANSFER_COEFF 0.1f
 #define HUMIDITY_TRANSFER_COEFF 0.1f
-
+*/
 
 /* Simulation parameters */
 #define SIMULATION_DURATION 160 /* Simulate for 160 secs for 24 hours ratio (in seconds) */
 #define CHECK_INTERVAL 5 /* Check sensors every 5 seconds */
-#define MINIMUM_DEFROST_INTERVAL 10
+#define MINIMUM_DEFROST_INTERVAL 15
 
 #define TIME_RATIO 540 /* 540 secs for 9 mins in real time */
 
 
+#define BASE_TEMP_C -18.0
+#define FACTOR 0.08
+
 
 /* Constants */
-#define COLD_ROOM_VOLUME 0.2954 // in cubic meters (0.632m x 0.85m x 0.55m for 142L)
-#define AIR_DENSITY 1.2 // in kg/m^3
-#define AIR_SPECIFIC_HEAT 1.005 // in J/kg·°C
-#define COMPRESSOR_POWER 0.165 /* Compressor power in KW */
+#define COLD_ROOM_VOLUME 0.8046 /*in cubic meters (1.45m x 0.895m x 0.62m for 400L)*/
+#define AIR_DENSITY 1.2 /* in kg/m^3*/
+#define AIR_SPECIFIC_HEAT 1.005 /* in J/kg·°C*/
+
+/*Define constants for temperature rise and humidity drop during defrost*/
+#define TEMP_RISE_DURING_DEFROST 5.0  
+#define HUMIDITY_DROP_DURING_DEFROST 10.0  
 
 
-#define LOW_P 58.99   /*Low pressure in Kpa */
-#define HIGH_P 535.9 /*High pressure in kpa */
-
-#define TOLERANCE 0.01 /* For precise cal*/
-
-#define CONTROL_UNIT_ENERGY_CONSUMPTION 0.05 // Example: 0.05 Wh per interval
+#define CONTROL_UNIT_ENERGY_CONSUMPTION 0.05 
 #define SENSOR_ENERGY_CONSUMPTION 0.001
 #define NUM_SENSORS 3
-
-/*Define global variables*/
-extern float delta_T;
-extern float delta_W;
-
-#define MIN_SUPERHEATING 5.0  // Minimum superheating temperature in °C
-#define MAX_SUPERHEATING 10.0 // Maximum superheating temperature in °C
-#define MIN_SUBCOOLING 5.0    // Minimum subcooling temperature in °C
-#define MAX_SUBCOOLING 10.0   // Maximum subcooling temperature in °C
-
 
 /* Sensor Structures */
 typedef struct {
@@ -98,52 +102,19 @@ typedef struct {
     bool isActive;
 } HotGasBypass;
 
-/*
-typedef struct {
-    int isOn;  // Correct member name should match the code in initialize_components.c
-    float pressure;  // Check if this member exists in the Com struct
-    float energy_consumed;  // Check if this member exists in the Com struct
-} Com;
-
-typedef struct {
-    float temp;  // Check if this member exists in the Con struct
-    float pressure;  // Check if this member exists in the Con struct
-} Con;
-
-typedef struct {
-    float temp;  // Check if this member exists in the Evap struct
-    float pressure;  // Check if this member exists in the Evap struct
-} Evap;
-
-typedef struct {
-    int state;  // Check if this member exists in the ExpValve struct
-    float pressure;  // Check if this member exists in the ExpValve struct
-} ExpValve;
-
-typedef struct {
-    int isOn;  // Check if this member exists in the SolValve struct
-} SolValve;
-
-typedef struct {
-    int isOn;  // Check if this member exists in the HotGasBypass struct
-    float pressure;  // Check if this member exists in the HotGasBypass struct
-} HotGasBypass;
-*/
 
 /* Control functions */
 float random_float(float min, float max);
 float read_ambient_temp();
-float read_surrounding_temp();
-float read_hud(HudSen* hud_sen, DoorSen* door_sen, float ambient_humidity);
+
+float read_hud();
 float random_float(float min, float max);
 float read_ambient_hud();
-float read_temp(TempSen* temp_sen, Com* com, DoorSen* door_sen, int defrost_state, float ambient_temp);
+float read_temp();
 bool read_door_sen(DoorSen* door_sen);
 
 void check_temperature_range(float temp);
 void check_humidity_range(float hud);
-
-//void adjust_temp_based_on_ambient(float ambient_temp, float* comp_temp, float area, float thickness);
 
 /* Frost level check*/
 void increase_temperature(SolValve* sol_valve, Com* com, Con* ccn);
@@ -151,9 +122,6 @@ void decrease_temperature(SolValve* sol_valve, Com* com, Con* con);
 void increase_humidity(SolValve* sol_valve, Com* com);
 void decrease_humidity(SolValve* sol_valve, Evap* evap, Com* com);
 float get_frost_level(float current_temp, float current_hud, float target_temp_low, float target_temp_high, float target_humidity_low, float target_humidity_high);
-
-//void adjust_temperature_based_on_ambient(float ambient_temp, float* comp_temp, float area, float thickness);
-
 
 void control_humidity(HudSen* hud_sen, SolValve* sol_valve, Evap* evap, Com* com);
 void control_temperature(TempSen* temp_sen, SolValve* sol_valve, Com* com, Con* con);
@@ -163,34 +131,30 @@ void toggle_door_state(DoorSen* door_sen);
 
 /* Prototypes */
 bool read_door_sen(DoorSen* door_sen); /* Reads the state of the door sen (open/closed) */
-//float calculate_cop(float h_1, float h_2, float total_heat_gain, float mass_flow_rate);
-
 float calculate_cop(float Q_evap, float W_com);
-//float calculate_mass_flow_rate(float total_heat_gain, float h_1, float h_4);
 
-float calculate_enthalpy_evap(float low_pressure, float evap_temp, float ambient_temp, float superheating);
-float calculate_enthalpy_com(float high_pressure, float con_temp, float ambient_temp);
-float calculate_enthalpy_con(float low_pressure, float con_temp, float suncooling, float ambient_temp);
-float calculate_enthalpy_exp_valve(float low_pressure, float evap_temp);
+
+float calculate_enthalpy_evap(float ambient_temp);
+float calculate_enthalpy_com(float ambient_temp);
+float calculate_enthalpy_con(float ambient_temp);
+float calculate_enthalpy_exp_valve(float ambient_temp);
+
+float calculate_entropy_evap(float ambient_temp);
+float calculate_entropy_com(float ambient_temp);
 
 float calculate_enthalpy(float ambient_temp, float pressure);
 
 /* Simulate effects */
-void simulate_com_effect(float temp_sensor_reading, float* con_temp, float ambient_temp, float* energy_consumed);
-void simulate_con_effect(float temp_sensor_reading, float* con_temp, float ambient_temp, float subcooling);
-void simulate_evap_effect(float temp_sensor_reading, float* evap_temp, float ambient_temp, float superheating);
-void simulate_exp_valve_effect(ExpValve* exp_valve);
+void simulate_com_effect(float temp, float ambient_temp, float* energy_consumed);
+void simulate_con_effect(float ambient_temp, float* energy_rejected);
+void simulate_evap_effect(float ambient_temp, float* energy_absorbed);
+void simulate_exp_valve_effect(float ambient_temp, float* temp, float* energy_consumed);
 void simulate_sol_valve_effect(SolValve* sol_valve);
-//void simulate_hot_gas_bypass_effect(HotGasBypass* hot_gas_bypass, TempSen* temp_sen);
-void simulate_hot_gas_bypass_defrosting(float pressure, float* con_temp, float* defrost_energy_consumed);
-//void simulate_heater_effect(TempSen* temp_sen, float* defrost_energy_consumed);
+void simulate_time_delay(int duration);
+void simulate_hot_gas_bypass_defrosting(float* temp, float* defrost_energy_consumed, float ambient_temp);
 void simulate_fan_effect(HudSen* hud_sen);
-//void adjust_for_door_state(DoorSen* door_sen, float* temp_adjustment, int* door_open_time);
+
 void adjust_for_door_state(TempSen* temp_sen, HudSen* hud_sen, DoorSen* door_sen);
-
-//void adjust_for_door_state(TempSen* temp_sen, HudSen* hud_sen, DoorSen* door_sen, float U, float A, float delta_T, float mass_of_air, float specific_heat_air, float mass, float usage_factor, float CFM, float delta_W);
-
-
 void initialize_sensors(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen);
 void initialize_components(Com* com, Con* con, Evap* evap, ExpValve* exp_valve, SolValve* sol_valve, HotGasBypass* hot_gas_bypass);
 
@@ -198,21 +162,9 @@ void update_sensors(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen, Com* 
 void control_system(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen, Com* com, Con* con, Evap* evap, ExpValve* exp_valve, SolValve* sol_valve, HotGasBypass* hot_gas_bypass, float* energy_consumed);
 void simulate_system(float external_temp);
 
-/* Calculate cooling load*
-float calculate_heat_gain_walls_roof(float U, float A, float delta_T);
-float calculate_heat_gain_product(float mass, float specific_heat_air, float delta_T, float usage_factor);
-float calculate_heat_gain_infiltration(float CFM, float delta_T);
-float calculate_latent_heat_gain(float CFM, float delta_W);
-float calculate_heat_gain_air(float mass_of_air, float specific_heat_air, float delta_T);
-
-float calculate_latent_heat_gain(float CFM, float delta_W);
-float calculate_total_heat_gain(float total_heat_gain_temp, float latent_heat_gain);
-float calculate_total_heat_gain_temp(float U, float A, float delta_T, float mass_of_air, float specific_heat_air, float mass, float usage_factor, float CFM);
-*/
-void calculate_deltes();
 
 float get_current_time();
 
+int control_defrosting_conditions(TempSen* temp_sen, HudSen* hud_sen, int* defrost_needed, float* last_defrost_time);
 
 #endif
-

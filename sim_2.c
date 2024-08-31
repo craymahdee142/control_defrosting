@@ -1,114 +1,105 @@
 #include "main.h"
 #include "variables.h"
-/*
+
+/**
+ * control_system - function to control the components
+ */
 void control_system(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen, Com* com, Con* con, Evap* evap, ExpValve* exp_valve, SolValve* sol_valve, HotGasBypass* hot_gas_bypass, float* energy_consumed) {
-    // Declare and initialize variables
-    static float last_defrost_time = 0;
-    int defrost_needed = 0;
-    float minimum_defrost_interval = 10; // seconds
-    float high_pressure = HIGH_P; 
-    float defrost_energy_consumed = 0.0; // Initialize defrost_energy_consumed
-    static int defrost_count = 0; // Declare defrost_count here
+        static float last_defrost_time = 0;
+        static int defrost_in_progress = 0;
+        float minimum_defrost_interval = 35.0;
+        float defrost_energy_consumed = 0.0;
+        static int defrost_count = 0;
 
-    // Read current sensor values
-    float current_temp = read_hud(hud_sen, &door_sen, 0, ambient_humidity);
-    float current_hud = read_hud(hud_sen, &door_sen, ambient_humidity);
-    float ambient_temp = read_ambient_temp();
-    float ambient_hud = read_ambient_hud();
-*/
+        float com_energy_consumed = 0.0;
+        float energy_absorbed = 0.0;
+        float energy_rejected = 0.0;
 
-void control_system(TempSen* temp_sen, DoorSen* door_sen, HudSen* hud_sen, Com* com, Con* con, Evap* evap, ExpValve* exp_valve, SolValve* sol_valve, HotGasBypass* hot_gas_bypass, float* energy_consumed) {
-    // Declare and initialize variables
-    static float last_defrost_time = 0;
-    int defrost_needed = 0;
-    float minimum_defrost_interval = 10; // seconds
-    float high_pressure = HIGH_P; 
-    float defrost_energy_consumed = 0.0; // Initialize defrost_energy_consumed
-    static int defrost_count = 0; // Declare defrost_count here
+        float ambient_temp = read_ambient_temp();
+        float ambient_humidity = read_ambient_hud();
 
-    // Initialize ambient variables
-    float ambient_temp = read_ambient_temp();
-    float ambient_hud = read_ambient_hud();
+        update_sensors(temp_sen, door_sen, hud_sen, com, ambient_temp, ambient_humidity);
 
-    // Read current sensor values
-    float current_temp = read_temp(temp_sen, com, door_sen, 0, ambient_temp); // Updated to use read_temp
-    float current_hud = read_hud(hud_sen, door_sen, ambient_hud); // Updated to use read_hud correctly
-
-
-
-    // Ensure sensor readings are within expected ranges
-    if (current_temp < -30.0 || current_temp > -10.0) {
-        fprintf(stderr, "Error: Temperature reading out of range: %.2f°C\n", current_temp);
+        /* Ensure sensor readings are within expected ranges*/
+        if (temp_sen->temp < -30.0 || temp_sen->temp > -10.0) {
+        fprintf(stderr, "Error: Temperature reading out of range: %.2fC\n", temp_sen->temp);
         return;
-    }
-    if (current_hud < 0.0 || current_hud > 100.0) {
-        fprintf(stderr, "Error: Humidity reading out of range: %.2f%%\n", current_hud);
-        return;
-    }
-
-    // Control expansion valve
-    if (superheating < MIN_SUPERHEATING) {
-        exp_valve->isOpen = 1;
-    } else if (superheating > MAX_SUPERHEATING) {
-        exp_valve->isOpen = 0;
-    }
-
-    // Control condenser
-    if (subcooling < MIN_SUBCOOLING) {
-        con->isOn = 1;
-    } else if (subcooling > MAX_SUBCOOLING) {
-        con->isOn = 0;
-    }
-
-    // Check frost level
-    float frost_level = get_frost_level(current_temp, current_hud, target_temp_low, target_temp_high, target_humidity_low, target_humidity_high);
-
-    if (frost_level < 20.0) {
-        // Control temperature and humidity
-        control_temperature(temp_sen, sol_valve, com, con);
-        control_humidity(hud_sen, sol_valve, evap, com);
-    } else {
-        // General action if frost level is too high
-        printf("Adjusting temperature and humidity to manage frost level.\n");
-        com->isOn = 0;
-        con->isOn = 0;
-        evap->isOn = 0;
-    }
-
-    // Check if defrosting is needed
-    if ((current_temp <= -18.0 || current_hud > target_humidity_high) &&
-        (get_current_time() - last_defrost_time >= minimum_defrost_interval)) {
-        printf("Defrost conditions met. Temperature: %.2f°C, Humidity: %.2f%%\n", current_temp, current_hud);
-        defrost_needed = 1;
-        last_defrost_time = get_current_time(); // Update last defrost time
-    }
-
-    // Perform defrost if needed
-    if (defrost_needed) {
-        defrost_count++;
-        simulate_hot_gas_bypass_defrosting(high_pressure, &con_temp, &defrost_energy_consumed);
-        *energy_consumed += defrost_energy_consumed;
-    }
-
-    // Simulate effects of various components
-    if (com->isOn) {
-        simulate_com_effect(temp_sen->temp, &con_temp, ambient_temp, energy_consumed);
-    }
-    if (evap->isOn) {
-        simulate_evap_effect(temp_sen->temp, &evap_temp, ambient_temp, superheating);
-    }
-    if (con->isOn) {
-        simulate_con_effect(temp_sen->temp, &con_temp, ambient_temp, subcooling);
-    }
-    if (exp_valve->isOpen) {
-        simulate_exp_valve_effect(exp_valve);
-    }
-    if (sol_valve->isOn) {
-        simulate_sol_valve_effect(sol_valve);
-    }
-    if (hot_gas_bypass->isActive) {
-        simulate_hot_gas_bypass_defrosting(high_pressure, &con_temp, &defrost_energy_consumed);
-        *energy_consumed += defrost_energy_consumed; // Accumulate total energy consumed
-    }
 }
+
+if (hud_sen->hud < 0.0 || hud_sen->hud > 100.0) {
+        fprintf(stderr, "Error: Humidity reading out of range: %.2f%%\n", hud_sen->hud);
+        return;
+}
+
+/* Determine if defrost conditions are met*/
+float current_time = get_current_time();
+if ((temp_sen->temp < TARGET_TEMP_LOW || temp_sen->temp > TARGET_TEMP_HIGH ||
+	hud_sen->hud < TARGET_HUMIDITY_LOW || hud_sen->hud > TARGET_HUMIDITY_HIGH) &&
+        (current_time - last_defrost_time >= minimum_defrost_interval) && !defrost_in_progress) {
+        printf("Defrost conditions met. Temperature: %.2fC, Humidity: %.2f%%\n", temp_sen->temp, hud_sen->hud);
+        defrost_in_progress = 1;
+        last_defrost_time = current_time;
+} 
+
+if (defrost_in_progress) {
+	simulate_hot_gas_bypass_defrosting(&temp_sen->temp, &defrost_energy_consumed, ambient_temp);
+        *energy_consumed += defrost_energy_consumed;
+        defrost_count++;
+
+        // Check if defrost is complete and reset the flag
+        if (temp_sen->temp >= -18.0) { 
+                defrost_in_progress = 0;
+                printf("Defrost complete. Total cycles: %d\n", defrost_count);
+        }
+}
+
+com->isOn = 1;
+/* Control temperature based on thresholds*/
+if (temp_sen->temp > -18.0) {
+	printf("Temperature is above -18.0C. Decreasing temperature.\n");
+        decrease_temperature(sol_valve, com, con);
+} else if (temp_sen->temp < -20.0) {
+        printf("Temperature is below -20.0C. Increasing temperature.\n");
+        increase_temperature(sol_valve, com, con);
+} else {
+        printf("Temperature is within the target range. Maintaining current state.\n");
+        sol_valve->isOn = 0;
+        com->isOn = 0;
+        
+}
+
+/*Control humidity based on thresholds*/
+if (hud_sen->hud < 50.0) {
+        printf("Humidity is below 50.0%%. Increasing humidity.\n");
+        increase_humidity(sol_valve, com);
+} else if (hud_sen->hud > 60.0) {
+        printf("Humidity is above 60.0%%. Decreasing humidity.\n");
+        decrease_humidity(sol_valve, evap, com);
+} else {
+        printf("Humidity is within the target range. Maintaining current state.\n");
+        sol_valve->isOn = 0;
+        evap->isOn = 0;
+        
+}
+
+/*Simulate effects of various components*/
+if (com->isOn) {
+        simulate_com_effect(temp_sen->temp, ambient_temp, &com_energy_consumed);
+        *energy_consumed += com_energy_consumed;
+}
+if (evap->isOn) {
+        simulate_evap_effect(ambient_temp, &energy_absorbed);
+}
+if (con->isOn) {
+        simulate_con_effect(ambient_temp, &energy_rejected);
+}
+if (exp_valve->isOpen) {
+        simulate_exp_valve_effect(ambient_temp, &temp_sen->temp, energy_consumed);
+}
+if (sol_valve->isOn) {
+        simulate_sol_valve_effect(sol_valve);
+}
+} 
+
+
 
